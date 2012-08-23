@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.3/jquery.min.js"></script>
+    <script type="text/javascript" src="websocket.connector.js"></script>
+    <script type="text/javascript" src="jsphi.ui.graphicchip.js"></script>
+    <script type="text/javascript" src="jsphi.ui.js"></script>
+    <script type="text/javascript" src="jsphi.protocol.js"></script>
+    <script type="text/javascript" src="jsphi.command.js"></script>
+    <script type="text/javascript" src="jsphi.js"></script>
+    <link rel="stylesheet" href="jsphi.css" type="text/css" />
+    <title>JSPhi (Phantasmal Island Client)</title>
+</head>
+<body>
+<div id="place">[<span id="dir"></span>]<span id="area"></span>(<span id="land"></span>)</div>
+    <div id="map"></div>
+    <pre><div id="log"></div></pre>
+    <div id="send_textbox">
+        <input type="text" id="control" style="ime-mode:disabled;"/><input type="text" id="text"><input type="button" id="send" value="send">
+    </div>
+    <div><pre>
+control用テキストボックス(左側)にフォーカスしてテンキーで操作
+2, 4, 6, 8: 移動
+5, 7, 9: 方向転換
+1: 攻撃
+3: 呪文詠唱
+0: ステータス確認
+
+右のテキストボックスにフォーカスしてsend(Enter)で発言
+タブでボックス間移動
+    </pre></div>
+
+    <div id="options">
+        make new user  <input type="text" id="newuser_name"/><input type="text" id="newuser_ip_port"/><input type="button" id="newuser" value="make and login"/><br>
+        import .phirc  <input type="text" id="phirc_user_id"/><input type="text" id="phirc_ip_port"/><input type="button" id="phirc_load" value="import"/><br>
+        <select name='chara_id' id='chara_id'></select>
+        <input type="button" id="login" value="login"/><input type="button" id="logout" value="logout"/><input type="button" id="phirc_show" value="show .phirc"/><br>
+        <br>
+        map scale  <input type="text" id="map_scale"/>  log width  <input type="text" id="log_width"/>  log height  <input type="text" id="log_height"/><br>
+        <input type="button" id="apply_options" value="apply options"/><br>
+    </div>
+
+    <br>
+    <div id="pcgl">使用されている画像は全て<a href="http://ryur.srv7.biz/pcgl/PCGL.txt">PCGL</a>適用のグラフィックスパーツです</div>
+</body>
+</html>
