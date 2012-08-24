@@ -1,8 +1,5 @@
 open Js
 
-let jq = Unsafe.variable "function(x){return $(x);}"
-let document = Unsafe.variable "document"
-
 
 let func () = Unsafe.eval_string "
     var NS_JSPHI = com.napthats.jsphi;
@@ -265,4 +262,4 @@ let func () = Unsafe.eval_string "
 
 "
 
-let _ = Unsafe.meth_call (jq document) "ready" [| Unsafe.inject func |]
+let _ = Dom_html.window##onload <- Dom_html.handler (fun _ -> ignore (func ()); Js._false)
