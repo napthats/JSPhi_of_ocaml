@@ -1,12 +1,43 @@
 open Js
 
 
-let func () = Unsafe.eval_string "
-    var NS_JSPHI = com.napthats.jsphi;
-    NS_JSPHI.CLIENT_VERSION = '05103010';
-    var NS_WEBSOCKET = com.napthats.websocket;
-    var URL_WEBSOCKT = 'ws://napthats.com/ws/';
-    var CONTROL_COMMAND = {
+class type phi_ui = object
+  method showErrorMessage: js_string t -> unit meth
+  method bind: js_string t -> 'a -> unit meth
+  method setPhirc: js_string t -> js_string t -> unit meth
+  method showClientMessage: js_string t -> unit meth
+end
+
+
+class type com = object
+  method setUserId: js_string t -> unit meth
+  method bind: js_string t -> 'a -> unit meth
+  method exec: js_string t -> unit meth
+  method resetExecutor: unit -> unit meth
+  method startNewuser: js_string t -> unit meth
+end
+
+class type phi_message = object
+  method data: js_string t readonly_prop
+end
+
+class type ws = object
+  method send: js_string t -> unit meth
+end
+
+class type ns = object
+  method _CLIENT_VERSION: js_string t prop
+  method readCookie: (js_string t -> js_string t) prop
+  method makePhiUI: unit -> phi_ui t meth
+  method makeCommandExecutor: phi_ui t -> ws t -> com t meth
+  method phidmMessageParse: js_string t -> js_string t meth
+end
+
+
+let _ = Dom_html.window##onload <- Dom_html.handler (fun _ -> 
+
+let _CONTROL_COMMAND = Unsafe.variable "
+    {
         49: ['1'],
         50: ['2'],
         51: ['3'],
@@ -49,8 +80,11 @@ let func () = Unsafe.eval_string "
         110: ['.'],
         111: ['equip'],
         190: ['.']
-    };
-    var CONTROL_COMMAND_SHIFT = {
+    }
+"
+
+in let _CONTROL_COMMAND_SHIFT = Unsafe.variable "
+    {
         65: ['cast', 'analyze'],
         66: ['cast', 'call'],
         67: ['cast', 'create'],
@@ -70,100 +104,34 @@ let func () = Unsafe.eval_string "
         87: ['cast', 'wizard eye'],
         88: ['cast', 'charge spell'],
         90: ['cast', 'destroy']
-    };
-    var phiUI;
-    var commandExecutor;
-    var ws;
-    var userId;
-    var serverIpPort;
+    }
+"
 
-    var login = function(id, ipPort) {
-        userId = id;
-        serverIpPort = ipPort;
-        if (!userId) {
-            phiUI.showErrorMessage('Please set user id first.');
-            return;
-        }
-        //tentative
-        ws.send('$open$:' + serverIpPort);
-        commandExecutor.setUserId(userId);
-        ws.send('#open ' + userId);
-        sendMessageEnterWorld();
-    };
+in let userId = ref ""
+in let serverIpPort = ref ""
+in let _NS_JSPHI : ns t = Unsafe.variable "com.napthats.jsphi"
+in let phiUI = _NS_JSPHI##makePhiUI(())
 
-    var logout = function() {
-        commandExecutor.resetExecutor();
-        ws.send('exit');
-    };
 
-    var recvMessage = function(msg){
-        var phidmMessage = NS_JSPHI.phidmMessageParse(msg.data);
-        if (!phidmMessage) return; //message does not exist or not end
-        commandExecutor.exec(phidmMessage);
-    };
 
-    var sendMessage = function(msg) {
-        ws.send(msg);
-    };
+in let commandExecutor = ref (Unsafe.variable "0")
+in let recvMessage msg =
+  let phidmMessage = _NS_JSPHI##phidmMessageParse(msg##data) in
+  match Opt.to_option (some phidmMessage) with
+    | None -> ()
+    | Some msg -> (!commandExecutor)##exec(msg)
 
-    var sendMessageEnterWorld = function() {
-        //test default setting
-        ws.send('#map-iv 1');
-        ws.send('#status-iv 1');
-        ws.send('#version-cli ' + NS_JSPHI.CLIENT_VERSION);
-        ws.send('#ex-switch eagleeye=form');
-        ws.send('#ex-map size=57');
-        ws.send('#ex-map style=turn');
-        ws.send('#ex-switch ex-move-recv=true');
-        ws.send('#ex-switch ex-list-mode-end=true');
-        ws.send('#ex-switch ex-disp-magic=false');
-        //end test
-    };
+in let ws: ws t = (Unsafe.variable "com.napthats.websocket.connectWebSocket") (Js.string "ws://napthats.com/ws/") recvMessage
 
-    var changeWorld = function(ipPort) {
-        serverIpPort = ipPort;
-        savePhirc(userId, serverIpPort);
-        phiUI.setPhirc(readPhircCookie(), userId + '@' + serverIpPort);
-        sendMessageEnterWorld();
-    };
+in let _ = commandExecutor := _NS_JSPHI##makeCommandExecutor(phiUI, ws)
 
-    var finishNewuser = function(id) {
-        userId = id;
-        savePhirc(userId, serverIpPort);
-        phiUI.setPhirc(readPhircCookie(), userId + '@' + serverIpPort);
-        commandExecutor.setUserId(id);
-        sendMessageEnterWorld();
-    };
 
-    var startNewuser = function(name, ipPort) {
-        serverIpPort = ipPort;
-        ws.send('$open$:' + serverIpPort);
-        commandExecutor.startNewuser(name);
-    };
-
-    var importPhirc = function(id, ipPort) {
-        userId = id;
-        serverIpPort = ipPort;
-        savePhirc(userId, serverIpPort);
-        phiUI.setPhirc(readPhircCookie(), userId + '@' + serverIpPort);
-        phiUI.showClientMessage('.phirc load completed.');
-    };
-
-    var showPhirc = function() {
-        if (userId) {
-            phiUI.showClientMessage(userId + ' ' + serverIpPort);
-        }
-        else {
-            phiUI.showErrorMessage('No user login.');
-        }
-    };
-
-    var savePhirc = function(id, ipPort) {
-        var savedPhircList = readPhircCookie();
-        if (!savedPhircList) savedPhircList = [];
-        for (var i = 0; i < savedPhircList.length; i++) {
-            if (id === savedPhircList[i][0]) {
-                savedPhircList[i][1] = ipPort;
+in let savePhirc id ipPort = ()
+(*  in let savedPhircList = readPhircCookie () in
+  if (!savedPhircList) savedPhircList = [];
+    for (var i = 0; i < savedPhircList.length; i++) {
+      if (id === savedPhircList[i][0]) {
+        savedPhircList[i][1] = ipPort;
                 break;
             }
         }
@@ -171,19 +139,102 @@ let func () = Unsafe.eval_string "
             savedPhircList.push([id, ipPort]);
         }
         writePhircCookie(savedPhircList);
-    };
+    }*)
 
-    //var loadPhirc = function(id) {
-    //    var savedPhircList = readPhircCookie();
-    //    if (!savedPhircList) return;
-    //    for (var i = 0; i < savedPhircList.length; i++) {
-    //        if (id === savedPhircList[i][0]) {
-    //            return savedPhircList[i];
-    //        }
-    //    }
-    //};
+in let readPhircCookie () = ""
+(*Unsafe.variable "
+function() {
+        var value = readCookie('phirc');
+        if (!value) return;
+        var phircList = [];
+        var _phircList = value.split(',');
+        for (var i = 0; i < _phircList.length; i++) {
+            phircList.push(_phircList[i].split('@'));
+        }
+        return phircList;
+    }
+"*)
 
-    NS_JSPHI.readCookie = function(key){
+
+in let sendMessageEnterWorld () =
+  ws##send(Js.string "#map-iv 1");
+  ws##send(Js.string "#status-iv 1");
+  ws##send(Js.string ("#version-cli " ^ "05103010")); (* TODO: extract version number *)
+  ws##send(Js.string "#ex-switch eagleeye=form");
+  ws##send(Js.string "#ex-map size=57");
+  ws##send(Js.string "#ex-map style=turn");
+  ws##send(Js.string "#ex-switch ex-move-recv=true");
+  ws##send(Js.string "#ex-switch ex-list-mode-end=true");
+  ws##send(Js.string "#ex-switch ex-disp-magic=false")
+
+
+in let login id ipPort =
+  Dom_html.window##alert(Js.string id);
+  Dom_html.window##alert(Js.string ipPort);
+  userId := id;
+  serverIpPort := ipPort;
+(*  if !userId = "" *)
+  if false
+  then phiUI##showErrorMessage(Js.string "Please set user id first.")
+  else (
+    ws##send(Js.string ("$open$:" ^ ipPort));
+    (!commandExecutor)##setUserId (Js.string id);
+    ws##send(Js.string ("#open " ^ id));
+(*    ws##send(Js.string ("$open$:" ^ "napthats.com:20017"));
+    (!commandExecutor)##setUserId (Js.string "guest1");
+    ws##send(Js.string ("#open " ^ "guest1"));    *)
+
+    sendMessageEnterWorld ()
+  )
+
+in let logout () =
+  (!commandExecutor)##resetExecutor(());
+  ws##send(Js.string "exit")
+
+
+in let sendMessage msg =
+  ws##send(Js.string msg)
+
+
+in let changeWorld ipPort =
+  serverIpPort := ipPort;
+  savePhirc(!userId, !serverIpPort);
+  phiUI##setPhirc(Js.string (readPhircCookie ()), Js.string (!userId ^ "@" ^ !serverIpPort));
+  sendMessageEnterWorld()
+
+
+in let finishNewuser id =
+  userId := id;
+  savePhirc(!userId, !serverIpPort);
+  phiUI##setPhirc(Js.string (readPhircCookie ()), Js.string (!userId ^ "@" ^ !serverIpPort));
+  (!commandExecutor)##setUserId(Js.string id);
+  sendMessageEnterWorld()
+
+in let startNewuser name ipPort =
+  serverIpPort := ipPort;
+  ws##send(Js.string ("$open$:" ^ !serverIpPort));
+  (!commandExecutor)##startNewuser(name)
+
+
+in let importPhirc id ipPort =
+  userId := id;
+  serverIpPort := ipPort;
+  savePhirc(!userId, !serverIpPort);
+  phiUI##setPhirc(Js.string (readPhircCookie ()), Js.string (!userId ^ "@" ^ !serverIpPort));
+  phiUI##showClientMessage(Js.string ".phirc load compin leted.")
+
+in let showPhirc () =
+(*  if (!userId != "") *)
+  if false
+  then phiUI##showClientMessage(Js.string (!userId ^ " " ^ !serverIpPort))
+  else phiUI##showErrorMessage(Js.string "No user login.")
+
+
+
+in let readCookie key = ""
+
+(*Unsafe.variable "
+function(key){
         var allcookies = document.cookie;
         var pos = allcookies.indexOf(key + '=');
         var value;
@@ -195,41 +246,33 @@ let func () = Unsafe.eval_string "
             value = decodeURIComponent(value);
         }
         return value;
-    };
+    }
+"*)
 
-    var readPhircCookie = function() {
-        var value = NS_JSPHI.readCookie('phirc');
-        if (!value) return;
-        var phircList = [];
-        var _phircList = value.split(',');
-        for (var i = 0; i < _phircList.length; i++) {
-            phircList.push(_phircList[i].split('@'));
-        }
-        return phircList;
-    };
 
-    var writePhircCookie = function(_phircList) {
+in let writePhircCookie _phircList = ()
+(*
+Unsafe.variable "
+function(_phircList) {
         var phircList = _phircList;
         for (var i = 0; i < phircList.length; i++) {
             phircList[i] = phircList[i].join('@');
         }
         document.cookie = 'phirc=' + encodeURIComponent(phircList.join(',')) + '; max-age=' + (60*60*24*365*10);
-    };
+    }
+"*)
 
-    
-    ws = NS_WEBSOCKET.connectWebSocket(URL_WEBSOCKT, recvMessage);
-    phiUI = NS_JSPHI.makePhiUI();
-    phiUI.setPhirc(readPhircCookie());
-    phiUI.bind('send', sendMessage);
-    phiUI.bind('login', login);
-    phiUI.bind('logout', logout);
-    phiUI.bind('newuser', startNewuser);
-    phiUI.bind('phirc_load', importPhirc);
-    phiUI.bind('phirc_show', showPhirc);
-    commandExecutor = NS_JSPHI.makeCommandExecutor(phiUI, ws);
-    commandExecutor.bind('change_world', changeWorld);
-    commandExecutor.bind('finish_newuser', finishNewuser);
-
+in let _ =
+  phiUI##setPhirc(Js.string (readPhircCookie ()), Js.string "");
+  phiUI##bind(Js.string "send", sendMessage);
+  phiUI##bind(Js.string "login", login);
+  phiUI##bind(Js.string "logout", logout);
+  phiUI##bind(Js.string "newuser", startNewuser);
+  phiUI##bind(Js.string "phirc_load", importPhirc);
+  phiUI##bind(Js.string "phirc_show", showPhirc);
+  (!commandExecutor)##bind(Js.string "change_world", changeWorld);
+  (!commandExecutor)##bind(Js.string "finish_newuser", finishNewuser)
+(*  Unsafe.eval_string "
     //keypad control and shortcut key
     (function(){
         var isShiftPressed = false;
@@ -259,7 +302,9 @@ let func () = Unsafe.eval_string "
             }
         });
     })();
+"*)
 
-"
 
-let _ = Dom_html.window##onload <- Dom_html.handler (fun _ -> ignore (func ()); Js._false)
+in Js._false)
+
+(*let _ = Dom_html.window##onload <- Dom_html.handler (fun _ -> ignore (func ()); Js._false)*)

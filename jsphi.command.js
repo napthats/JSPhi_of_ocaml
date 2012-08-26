@@ -34,7 +34,6 @@ if (!com.napthats.jsphi) com.napthats.jsphi = {};
             var state = 'ch-srv';
             var ip;
             var port;
-
             return function(command) {
                 switch (state) {
                     case 'ch-srv':

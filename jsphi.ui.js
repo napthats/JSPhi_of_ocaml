@@ -11,6 +11,21 @@ if (!com) com = {};
 if (!com.napthats) com.napthats = {};
 if (!com.napthats.jsphi) com.napthats.jsphi = {};
 
+var readCookie = function(key){
+    var allcookies = document.cookie;
+    var pos = allcookies.indexOf(key + '=');
+    var value;
+    if (pos !== -1) {
+        var start = pos + key.length + 1;
+        var end = allcookies.indexOf(';', start);
+        if (end === -1) end = allcookies.length;
+        value = allcookies.substring(start, end);
+        value = decodeURIComponent(value);
+    }
+    return value;
+};
+
+
 (function() {
     var ns = com.napthats.jsphi;
     var MAP_WIDTH = 7;
@@ -426,21 +441,21 @@ if (!com.napthats.jsphi) com.napthats.jsphi = {};
         ctx.font = FONT_DEFAULT;
 
         var initialMapScale = 0;
-        if (initialMapScale = ns.readCookie(COOKIE_MAP_SCALE)) {
+        if (initialMapScale = readCookie(COOKIE_MAP_SCALE)) {
             $('#map_scale').val(initialMapScale);
         }
         else {
             $('#map_scale').val(DEFAULT_MAP_SCALE);
         }
         var initialLogHeight = 0;
-        if (initialLogHeight = ns.readCookie(COOKIE_LOG_HEIGHT)) {
+        if (initialLogHeight = readCookie(COOKIE_LOG_HEIGHT)) {
             $('#log_height').val(initialLogHeight);
         }
         else {
             $('#log_height').val(DEFAULT_LOG_HEIGHT);
         }
         var initialLogWidth = 0;
-        if (initialLogWidth = ns.readCookie(COOKIE_LOG_WIDTH)) {
+        if (initialLogWidth = readCookie(COOKIE_LOG_WIDTH)) {
             $('#log_width').val(initialLogWidth);
         }
         else {
