@@ -61,23 +61,6 @@ in let ws: ws t = (Unsafe.variable "com.napthats.websocket.connectWebSocket") (J
 in let _ = commandExecutor := _NS_JSPHI##makeCommandExecutor(phiUI, ws)
 
 
-in let savePhirc = Unsafe.variable "
-function(id, ipPort) {
-        var savedPhircList = readPhircCookie();
-        if (!savedPhircList) savedPhircList = [];
-        for (var i = 0; i < savedPhircList.length; i++) {
-            if (id === savedPhircList[i][0]) {
-                savedPhircList[i][1] = ipPort;
-                break;
-            }
-        }
-        if (i === savedPhircList.length) {
-            savedPhircList.push([id, ipPort]);
-        }
-        writePhircCookie(savedPhircList);
-    }
-"
-
 
 
 in let sendMessageEnterWorld () =
@@ -93,28 +76,14 @@ in let sendMessageEnterWorld () =
 
 
 in let login id ipPort =
-(*  Dom_html.window##alert(Js.string id);
-  Dom_html.window##alert(Js.string ipPort); *)
   userId := Js.to_string id;
   serverIpPort := Js.to_string ipPort;
   if !userId = "" 
   then phiUI##showErrorMessage(Js.string "Please set user id first.")
   else (
-(*    let mes = "$open$:" ^ ipPort in
-    ws##send(Js.string mes);
-    (!commandExecutor)##setUserId (Js.string id);
-    let mes2 = "#open " ^ id in
-    ws##send(Js.string mes2); *)
-(*    ws##send(Js.string ("$open$:" ^ ipPort));
-    (!commandExecutor)##setUserId (Js.string id);
-    ws##send(Js.string ("#open " ^ id));*)
     ws##send((Js.string "$open$:")##concat(Js.string !serverIpPort));
     (!commandExecutor)##setUserId (Js.string !userId);
     ws##send((Js.string "#open ")##concat(Js.string !userId));
-(*    ws##send(Js.string ("$open$:" ^ "napthats.com:20017"));
-    (!commandExecutor)##setUserId (Js.string "guest1");
-    ws##send(Js.string ("#open " ^ "guest1")); *)
-
     sendMessageEnterWorld ()
   )
 
@@ -136,12 +105,21 @@ in let readCookie key =
     let ends = cookie##indexOf_from(Js.string ";", start) in
     let ends_ = if ends = -1 then cookie##length else ends in
     Js.to_string (decodeURIComponent cookie##substring(start, ends_))
-  
+
+in let writePhircCookie phircList = 
+  let phircCookie = List.fold_left (fun acc (key, value) -> acc ^ "," ^ key ^ "@" ^ value) (match List.hd phircList with (key, value) -> key ^ "@" ^ value) (List.tl phircList) in
+  Dom_html.document##cookie <- Js.string ("phirc=" ^ (Js.to_string (encodeURIComponent (Js.string phircCookie))) ^ "; max-age=" ^ (string_of_int (60*60*24*36*5*10)))
+
+ 
 in let readPhircCookie () = 
   match readCookie("phirc") with
     | "" -> []
     | value ->
         List.map (fun v -> String.split v "@") (String.nsplit value ",")
+
+in let savePhirc id ipPort = 
+  let savedPhircList = readPhircCookie () in
+  writePhircCookie ((id, ipPort) :: (List.remove_assoc id savedPhircList)) 
 
 in let sslist_to_jsarray list =
   Js.array (Array.of_list (List.map (fun (s1,s2) ->
@@ -149,7 +127,7 @@ in let sslist_to_jsarray list =
 
 in let finishNewuser id =
   userId := Js.to_string id;
-  savePhirc(Js.string !userId, Js.string !serverIpPort);
+  savePhirc !userId !serverIpPort;
   phiUI##setPhirc(sslist_to_jsarray (readPhircCookie()), (Js.string (!userId))##concat(Js.string "@")##concat(Js.string !serverIpPort));
   (!commandExecutor)##setUserId(Js.string !userId);
   sendMessageEnterWorld()
@@ -163,7 +141,7 @@ in let startNewuser name ipPort =
 in let importPhirc id ipPort =
   userId := Js.to_string id;
   serverIpPort := Js.to_string ipPort;
-  savePhirc(Js.string !userId, Js.string !serverIpPort);
+  savePhirc !userId !serverIpPort;
   phiUI##setPhirc(sslist_to_jsarray (readPhircCookie ()), (Js.string (!userId))##concat(Js.string "@")##concat(Js.string !serverIpPort));
   phiUI##showClientMessage(Js.string ".phirc load completed.")
 
@@ -176,19 +154,9 @@ in let showPhirc () =
 
 in let changeWorld ipPort =
   serverIpPort := Js.to_string ipPort;
-  savePhirc(Js.string !userId, Js.string !serverIpPort);
+  savePhirc !userId !serverIpPort;
   phiUI##setPhirc(sslist_to_jsarray (readPhircCookie ()), (Js.string (!userId))##concat(Js.string "@")##concat(Js.string (!serverIpPort)));
   sendMessageEnterWorld()
-
-in let writePhircCookie = Unsafe.variable "
-function(_phircList) {
-        var phircList = _phircList;
-        for (var i = 0; i < phircList.length; i++) {
-            phircList[i] = phircList[i].join('@');
-        }
-        document.cookie = 'phirc=' + encodeURIComponent(phircList.join(',')) + '; max-age=' + (60*60*24*365*10);
-    }
-"
 
 in let _ =
   phiUI##setPhirc(sslist_to_jsarray (readPhircCookie ()), Js.undefined);

@@ -282,6 +282,95 @@ function caml_create_string(len) {
   if (len < 0) caml_invalid_argument("String.create");
   return new MlMakeString(len);
 }
+function caml_parse_format (fmt) {
+  fmt = fmt.toString ();
+  var len = fmt.length;
+  if (len > 31) caml_invalid_argument("format_int: format too long");
+  var f =
+    { justify:'+', signstyle:'-', filler:' ', alternate:false,
+      base:0, signedconv:false, width:0, uppercase:false,
+      sign:1, prec:-1, conv:'f' };
+  for (var i = 0; i < len; i++) {
+    var c = fmt.charAt(i);
+    switch (c) {
+    case '-':
+      f.justify = '-'; break;
+    case '+': case ' ':
+      f.signstyle = c; break;
+    case '0':
+      f.filler = '0'; break;
+    case '#':
+      f.alternate = true; break;
+    case '1': case '2': case '3': case '4': case '5':
+    case '6': case '7': case '8': case '9':
+      f.width = 0;
+      while (c=fmt.charCodeAt(i) - 48, c >= 0 && c <= 9) {
+        f.width = f.width * 10 + c; i++
+      }
+      i--;
+     break;
+    case '.':
+      f.prec = 0;
+      i++;
+      while (c=fmt.charCodeAt(i) - 48, c >= 0 && c <= 9) {
+        f.prec = f.prec * 10 + c; i++
+      }
+      i--;
+    case 'd': case 'i':
+      f.signedconv = true; /* fallthrough */
+    case 'u':
+      f.base = 10; break;
+    case 'x':
+      f.base = 16; break;
+    case 'X':
+      f.base = 16; f.uppercase = true; break;
+    case 'o':
+      f.base = 8; break;
+    case 'e': case 'f': case 'g':
+      f.signedconv = true; f.conv = c; break;
+    case 'E': case 'F': case 'G':
+      f.signedconv = true; f.uppercase = true;
+      f.conv = c.toLowerCase (); break;
+    }
+  }
+  return f;
+}
+function caml_finish_formatting(f, rawbuffer) {
+  if (f.uppercase) rawbuffer = rawbuffer.toUpperCase();
+  var len = rawbuffer.length;
+  if (f.signedconv && (f.sign < 0 || f.signstyle != '-')) len++;
+  if (f.alternate) {
+    if (f.base == 8) len += 1;
+    if (f.base == 16) len += 2;
+  }
+  var buffer = "";
+  if (f.justify == '+' && f.filler == ' ')
+    for (var i = len; i < f.width; i++) buffer += ' ';
+  if (f.signedconv) {
+    if (f.sign < 0) buffer += '-';
+    else if (f.signstyle != '-') buffer += f.signstyle;
+  }
+  if (f.alternate && f.base == 8) buffer += '0';
+  if (f.alternate && f.base == 16) buffer += "0x";
+  if (f.justify == '+' && f.filler == '0')
+    for (var i = len; i < f.width; i++) buffer += '0';
+  buffer += rawbuffer;
+  if (f.justify == '-')
+    for (var i = len; i < f.width; i++) buffer += ' ';
+  return new MlWrappedString (buffer);
+}
+function caml_format_int(fmt, i) {
+  if (fmt.toString() == "%d") return new MlWrappedString(""+i);
+  var f = caml_parse_format(fmt);
+  if (i < 0) { if (f.signedconv) { f.sign = -1; i = -i; } else i >>>= 0; }
+  var s = i.toString(f.base);
+  if (f.prec >= 0) {
+    f.filler = ' ';
+    var n = f.prec - s.length;
+    if (n > 0) s = caml_str_repeat (n, '0') + s;
+  }
+  return caml_finish_formatting(f, s);
+}
 function caml_js_eval_string () {return eval(arguments[0].toString());}
 function caml_js_from_array(a) { return a.slice(1); }
 function caml_js_wrap_callback(f) {
@@ -308,19 +397,4 @@ function caml_string_equal(s1, s2) {
   return (s1.getFullBytes () == s2.getFullBytes ())?1:0;
 }
 function caml_string_notequal(s1, s2) { return 1-caml_string_equal(s1, s2); }
-(function(){function a8(cu,cv,cw){return cu.length==2?cu(cv,cw):caml_call_gen(cu,[cv,cw]);}function an(cs,ct){return cs.length==1?cs(ct):caml_call_gen(cs,[ct]);}var a=[0,new MlString("Invalid_argument")],b=new MlString("phirc"),c=new MlString(",");caml_register_global(5,[0,new MlString("Division_by_zero")]);caml_register_global(3,a);caml_register_global(2,[0,new MlString("Failure")]);var d=[0,new MlString("Pervasives.Exit")],aj=[0,new MlString("Not_found")],ai=new MlString("Pervasives.do_at_exit"),ah=new MlString("String.sub"),ag=new MlString(""),af=new MlString(""),ae=new MlString("ExtString.Invalid_string"),ad=new MlString("$('#text').focus();"),ac=new MlString("@"),ab=new MlString(""),aa=new MlString(" "),$=new MlString("No user login."),_=new MlString("@"),Z=new MlString(".phirc load completed."),Y=new MlString("$open$:"),X=new MlString("@"),W=new MlString("@"),V=new MlString(""),U=new MlString("="),T=new MlString(""),S=new MlString(";"),R=new MlString("exit"),Q=new MlString(""),P=new MlString("Please set user id first."),O=new MlString("$open$:"),N=new MlString("#open "),M=new MlString("#map-iv 1"),L=new MlString("#status-iv 1"),K=new MlString("05103010"),J=new MlString("#version-cli "),I=new MlString("#ex-switch eagleeye=form"),H=new MlString("#ex-map size=57"),G=new MlString("#ex-map style=turn"),F=new MlString("#ex-switch ex-move-recv=true"),E=new MlString("#ex-switch ex-list-mode-end=true"),D=new MlString("#ex-switch ex-disp-magic=false"),C=[0,[0,49,[0,new MlString("1"),0]],[0,[0,50,[0,new MlString("2"),0]],[0,[0,51,[0,new MlString("3"),0]],[0,[0,52,[0,new MlString("4"),0]],[0,[0,53,[0,new MlString("5"),0]],[0,[0,54,[0,new MlString("6"),0]],[0,[0,55,[0,new MlString("7"),0]],[0,[0,56,[0,new MlString("8"),0]],[0,[0,57,[0,new MlString("9"),0]],[0,[0,65,[0,new MlString("read"),0]],[0,[0,67,[0,new MlString("use"),0]],[0,[0,68,[0,new MlString("erase"),0]],0]]]]]]]]]]]],B=[0,[0,65,[0,new MlString("cast"),[0,new MlString("analyze"),0]]],0],A=new MlString(""),z=new MlString(""),y=new MlString("ws://napthats.com/ws/"),x=new MlString("send"),w=new MlString("login"),v=new MlString("logout"),u=new MlString("newuser"),t=new MlString("phirc_load"),s=new MlString("phirc_show"),r=new MlString("change_world"),q=new MlString("finish_newuser"),p=new MlString("control_keydown"),o=new MlString("control_keyup");function n(e,g){var f=e.getLen(),h=g.getLen(),i=caml_create_string(f+h|0);caml_blit_string(e,0,i,0,f);caml_blit_string(g,0,i,f,h);return i;}function ak(m){var j=caml_ml_out_channels_list(0);for(;;){if(j){var k=j[2];try {}catch(l){}var j=k;continue;}return 0;}}caml_register_named_value(ai,ak);function ap(am,al){if(al){var ao=al[2],aq=an(am,al[1]);return [0,aq,ap(am,ao)];}return 0;}function av(at,ar,as){if(0<=ar&&0<=as&&!((at.getLen()-as|0)<ar)){var au=caml_create_string(as);caml_blit_string(at,ar,au,0,as);return au;}throw [0,a,ah];}var aw=[0,0],ax=[0,ae];function aO(aC,ay){var az=ay.getLen();if(0===az)var aA=0;else{var aB=0,aF=aC.getLen();try {var aD=aB,aE=0,aG=aF-az|0;if(!(aG<aE)){var aH=aE;a:for(;;){var aI=0;for(;;){if(aC.safeGet(aH+aI|0)===ay.safeGet(aI)){var aJ=aI+1|0;if(aJ===az){var aD=aH;throw [0,d];}var aI=aJ;continue;}var aK=aH+1|0;if(aG!==aH){var aH=aK;continue a;}break;}break;}}throw [0,ax];}catch(aL){if(aL[1]!==d)throw aL;var aA=aD;}}var aM=ay.getLen(),aN=av(aC,aA+aM|0,(aC.getLen()-aA|0)-aM|0);return [0,av(aC,0,aA),aN];}var aP=undefined,aT=null,aS=false,aR=Array;function aU(aQ){return aQ instanceof aR?0:[0,new MlWrappedString(aQ.toString())];}aw[1]=[0,aU,aw[1]];function aW(aV){return aV;}var aX=window,aY=aX.document;window.HTMLElement===aP;function cn(cm){var aZ=[0,A],a0=[0,z],a1=com.napthats.jsphi,a2=a1.makePhiUI(0),a3=[0,0];function a7(a4){var a5=aW(a1.phidmMessageParse(a4.data)),a6=a5==aT?0:[0,a5];return a6?a3[1].exec(a6[1]):0;}var a9=a8(com.napthats.websocket.connectWebSocket,y.toString(),a7);a3[1]=a1.makeCommandExecutor(a2,a9);var a_=
-function(id, ipPort) {
-        var savedPhircList = readPhircCookie();
-        if (!savedPhircList) savedPhircList = [];
-        for (var i = 0; i < savedPhircList.length; i++) {
-            if (id === savedPhircList[i][0]) {
-                savedPhircList[i][1] = ipPort;
-                break;
-            }
-        }
-        if (i === savedPhircList.length) {
-            savedPhircList.push([id, ipPort]);
-        }
-        writePhircCookie(savedPhircList);
-    }
-;function bc(a$){a9.send(M.toString());a9.send(L.toString());a9.send(n(J,K).toString());a9.send(I.toString());a9.send(H.toString());a9.send(G.toString());a9.send(F.toString());a9.send(E.toString());return a9.send(D.toString());}function b0(ba,bb){aZ[1]=new MlWrappedString(ba);a0[1]=new MlWrappedString(bb);return caml_string_equal(aZ[1],Q)?a2.showErrorMessage(P.toString()):(a9.send(O.toString().concat(a0[1].toString())),a3[1].setUserId(aZ[1].toString()),a9.send(N.toString().concat(aZ[1].toString())),bc(0));}function b1(bd){a3[1].resetExecutor(0);return a9.send(R.toString());}function b2(be){return a9.send(be.toString());}function bM(bu){var bf=aY.cookie,bg=bf.indexOf(b.toString().concat(U.toString()));if(-1===bg)var bh=T;else{var bi=(bg+b.toString().length|0)+1|0,bj=bf.indexOf(S.toString(),bi),bk=-1===bj?bf.length:bj,bh=new MlWrappedString(decodeURIComponent(bf.substring(bi,bk)));}if(caml_string_notequal(bh,V)){if(caml_string_equal(bh,ag))var bl=0;else{if(caml_string_equal(c,af))throw [0,ax];var bp=function(bn,bm){try {var bo=aO(bn,bm),bq=bp(bo[2],bm),br=[0,bo[1],bq];}catch(bs){if(bs[1]===ax)return [0,bn,0];throw bs;}return br;},bl=bp(bh,c);}return ap(function(bt){return aO(bt,W);},bl);}return 0;}function bO(bw){var bx=ap(function(bv){return caml_js_from_array([0,bv[1].toString(),bv[2].toString()]);},bw);if(bx){var by=0,bz=bx,bF=bx[2],bC=bx[1];for(;;){if(bz){var bB=bz[2],bA=by+1|0,by=bA,bz=bB;continue;}var bD=caml_make_vect(by,bC),bE=1,bG=bF;for(;;){if(bG){var bH=bG[2];bD[bE+1]=bG[1];var bI=bE+1|0,bE=bI,bG=bH;continue;}var bJ=bD;break;}break;}}else var bJ=[0];return caml_js_from_array(bJ);}function b3(bK){aZ[1]=new MlWrappedString(bK);an(a_,[0,aZ[1].toString(),a0[1].toString()]);var bL=aZ[1].toString().concat(X.toString()),bN=bL.concat(a0[1].toString());a2.setPhirc(bO(bM(0)),bN);a3[1].setUserId(aZ[1].toString());return bc(0);}function b4(bQ,bP){a0[1]=new MlWrappedString(bP);a9.send(Y.toString().concat(a0[1].toString()));return a3[1].startNewuser(bQ);}function b5(bR,bS){aZ[1]=new MlWrappedString(bR);a0[1]=new MlWrappedString(bS);an(a_,[0,aZ[1].toString(),a0[1].toString()]);var bT=aZ[1].toString().concat(_.toString()),bU=bT.concat(a0[1].toString());a2.setPhirc(bO(bM(0)),bU);return a2.showClientMessage(Z.toString());}function b6(bW){if(ab!==aZ[1]){var bV=n(aa,a0[1]);return a2.showClientMessage(n(aZ[1],bV).toString());}return a2.showErrorMessage($.toString());}function b7(bX){a0[1]=new MlWrappedString(bX);an(a_,[0,aZ[1].toString(),a0[1].toString()]);var bY=aZ[1].toString().concat(ac.toString()),bZ=bY.concat(a0[1].toString());a2.setPhirc(bO(bM(0)),bZ);return bc(0);}a2.setPhirc(bO(bM(0)),aP);a2.bind(x.toString(),b2);a2.bind(w.toString(),b0);a2.bind(v.toString(),b1);a2.bind(u.toString(),b4);a2.bind(t.toString(),b5);a2.bind(s.toString(),b6);a3[1].bind(r.toString(),b7);a3[1].bind(q.toString(),b3);var b8=[0,0];function ck(b9){var b_=b9.keyCode,b$=b8[1]?B:C;if(9===b_)caml_js_eval_string(ad);else if(16===b_)b8[1]=1;else{var ca=b$;for(;;){if(ca){var cb=ca[2],cc=0===caml_compare(ca[1][1],b_)?1:0;if(!cc){var ca=cb;continue;}var cd=cc;}else var cd=0;if(cd){var ce=b$;for(;;){if(!ce)throw [0,aj];var cf=ce[1],ch=ce[2],cg=cf[2];if(0!==caml_compare(cf[1],b_)){var ce=ch;continue;}ap(function(ci){return a9.send(ci.toString());},cg);break;}}break;}}return b9.preventDefault();}function cl(cj){return 16===cj.keyCode?(b8[1]=0,0):0;}a2.bind(p.toString(),ck);a2.bind(o.toString(),cl);return aS;}aX.onload=aW(caml_js_wrap_callback(function(co){if(co){var cp=cn(co);if(!(cp|0))co.preventDefault();return cp;}var cq=event,cr=cn(cq);cq.returnValue=cr;return cr;}));ak(0);return;}());
+(function(){function bn(c0,c1,c2){return c0.length==2?c0(c1,c2):caml_call_gen(c0,[c1,c2]);}function az(cY,cZ){return cY.length==1?cY(cZ):caml_call_gen(cY,[cZ]);}var a=[0,new MlString("Failure")],b=[0,new MlString("Invalid_argument")],c=new MlString("phirc"),d=new MlString(",");caml_register_global(5,[0,new MlString("Division_by_zero")]);caml_register_global(3,b);caml_register_global(2,a);var ak=[0,new MlString("Not_found")],aj=new MlString("%d"),ai=new MlString("Pervasives.Exit"),ah=new MlString("Pervasives.do_at_exit"),ag=new MlString("tl"),af=new MlString("hd"),ae=new MlString("String.sub"),ad=new MlString(""),ac=new MlString(""),ab=new MlString("ExtString.Invalid_string"),aa=new MlString("$('#text').focus();"),$=new MlString("@"),_=new MlString(""),Z=new MlString(" "),Y=new MlString("No user login."),X=new MlString("@"),W=new MlString(".phirc load completed."),V=new MlString("$open$:"),U=new MlString("@"),T=new MlString("@"),S=new MlString(""),R=new MlString("@"),Q=new MlString(","),P=new MlString("@"),O=new MlString("; max-age="),N=new MlString("phirc="),M=new MlString("="),L=new MlString(""),K=new MlString(";"),J=new MlString("exit"),I=new MlString(""),H=new MlString("Please set user id first."),G=new MlString("$open$:"),F=new MlString("#open "),E=new MlString("#map-iv 1"),D=new MlString("#status-iv 1"),C=new MlString("05103010"),B=new MlString("#version-cli "),A=new MlString("#ex-switch eagleeye=form"),z=new MlString("#ex-map size=57"),y=new MlString("#ex-map style=turn"),x=new MlString("#ex-switch ex-move-recv=true"),w=new MlString("#ex-switch ex-list-mode-end=true"),v=new MlString("#ex-switch ex-disp-magic=false"),u=[0,[0,49,[0,new MlString("1"),0]],[0,[0,50,[0,new MlString("2"),0]],[0,[0,51,[0,new MlString("3"),0]],[0,[0,52,[0,new MlString("4"),0]],[0,[0,53,[0,new MlString("5"),0]],[0,[0,54,[0,new MlString("6"),0]],[0,[0,55,[0,new MlString("7"),0]],[0,[0,56,[0,new MlString("8"),0]],[0,[0,57,[0,new MlString("9"),0]],[0,[0,65,[0,new MlString("read"),0]],[0,[0,67,[0,new MlString("use"),0]],[0,[0,68,[0,new MlString("erase"),0]],0]]]]]]]]]]]],t=[0,[0,65,[0,new MlString("cast"),[0,new MlString("analyze"),0]]],0],s=new MlString(""),r=new MlString(""),q=new MlString("ws://napthats.com/ws/"),p=new MlString("send"),o=new MlString("login"),n=new MlString("logout"),m=new MlString("newuser"),l=new MlString("phirc_load"),k=new MlString("phirc_show"),j=new MlString("change_world"),i=new MlString("finish_newuser"),h=new MlString("control_keydown"),g=new MlString("control_keyup");function f(e){throw [0,a,e];}var al=[0,ai];function av(am,ao){var an=am.getLen(),ap=ao.getLen(),aq=caml_create_string(an+ap|0);caml_blit_string(am,0,aq,0,an);caml_blit_string(ao,0,aq,an,ap);return aq;}function aw(au){var ar=caml_ml_out_channels_list(0);for(;;){if(ar){var as=ar[2];try {}catch(at){}var ar=as;continue;}return 0;}}caml_register_named_value(ah,aw);function aB(ay,ax){if(ax){var aA=ax[2],aC=az(ay,ax[1]);return [0,aC,aB(ay,aA)];}return 0;}function aH(aG,aD){if(aD){var aE=aD[2],aF=aD[1];return 0===caml_compare(aF[1],aG)?aE:[0,aF,aH(aG,aE)];}return 0;}function aM(aK,aI,aJ){if(0<=aI&&0<=aJ&&!((aK.getLen()-aJ|0)<aI)){var aL=caml_create_string(aJ);caml_blit_string(aK,aI,aL,0,aJ);return aL;}throw [0,b,ae];}var aN=[0,0],aO=[0,ab];function a5(aT,aP){var aQ=aP.getLen();if(0===aQ)var aR=0;else{var aS=0,aW=aT.getLen();try {var aU=aS,aV=0,aX=aW-aQ|0;if(!(aX<aV)){var aY=aV;a:for(;;){var aZ=0;for(;;){if(aT.safeGet(aY+aZ|0)===aP.safeGet(aZ)){var a0=aZ+1|0;if(a0===aQ){var aU=aY;throw [0,al];}var aZ=a0;continue;}var a1=aY+1|0;if(aX!==aY){var aY=a1;continue a;}break;}break;}}throw [0,aO];}catch(a2){if(a2[1]!==al)throw a2;var aR=aU;}}var a3=aP.getLen(),a4=aM(aT,aR+a3|0,(aT.getLen()-aR|0)-a3|0);return [0,aM(aT,0,aR),a4];}var a6=undefined,a_=null,a9=false,a8=Array;function a$(a7){return a7 instanceof a8?0:[0,new MlWrappedString(a7.toString())];}aN[1]=[0,a$,aN[1]];function bb(ba){return ba;}var bc=window,bd=bc.document;window.HTMLElement===a6;function cT(cS){var be=[0,s],bf=[0,r],bg=com.napthats.jsphi,bh=bg.makePhiUI(0),bi=[0,0];function bm(bj){var bk=bb(bg.phidmMessageParse(bj.data)),bl=bk==a_?0:[0,bk];return bl?bi[1].exec(bl[1]):0;}var bo=bn(com.napthats.websocket.connectWebSocket,q.toString(),bm);bi[1]=bg.makeCommandExecutor(bh,bo);function bs(bp){bo.send(E.toString());bo.send(D.toString());bo.send(av(B,C).toString());bo.send(A.toString());bo.send(z.toString());bo.send(y.toString());bo.send(x.toString());bo.send(w.toString());return bo.send(v.toString());}function cu(bq,br){be[1]=new MlWrappedString(bq);bf[1]=new MlWrappedString(br);return caml_string_equal(be[1],I)?bh.showErrorMessage(H.toString()):(bo.send(G.toString().concat(bf[1].toString())),bi[1].setUserId(be[1].toString()),bo.send(F.toString().concat(be[1].toString())),bs(0));}function cv(bt){bi[1].resetExecutor(0);return bo.send(J.toString());}function cw(bu){return bo.send(bu.toString());}function bL(bK){var bv=bd.cookie,bw=bv.indexOf(c.toString().concat(M.toString()));if(-1===bw)var bx=L;else{var by=(bw+c.toString().length|0)+1|0,bz=bv.indexOf(K.toString(),by),bA=-1===bz?bv.length:bz,bx=new MlWrappedString(decodeURIComponent(bv.substring(by,bA)));}if(caml_string_notequal(bx,S)){if(caml_string_equal(bx,ad))var bB=0;else{if(caml_string_equal(d,ac))throw [0,aO];var bF=function(bD,bC){try {var bE=a5(bD,bC),bG=bF(bE[2],bC),bH=[0,bE[1],bG];}catch(bI){if(bI[1]===aO)return [0,bD,0];throw bI;}return bH;},bB=bF(bx,d);}return aB(function(bJ){return a5(bJ,T);},bB);}return 0;}function cf(bM,bO){var bN=aH(bM,bL(0)),bP=[0,bM,bO],bQ=[0,bP,bN],bR=bQ?bN:f(ag),bS=bQ?bP:f(af),bT=bS[1],bU=av(bT,av(P,bS[2])),bV=bR;for(;;){if(bV){var bW=bV[1],bY=bV[2],bX=bW[1],bZ=av(bU,av(Q,av(bX,av(R,bW[2])))),bU=bZ,bV=bY;continue;}var b0=av(O,caml_format_int(aj,((((60*60|0)*24|0)*36|0)*5|0)*10|0));return bd.cookie=av(N,av(new MlWrappedString(encodeURIComponent(bU.toString())),b0)).toString();}}function ci(b2){var b3=aB(function(b1){return caml_js_from_array([0,b1[1].toString(),b1[2].toString()]);},b2);if(b3){var b4=0,b5=b3,b$=b3[2],b8=b3[1];for(;;){if(b5){var b7=b5[2],b6=b4+1|0,b4=b6,b5=b7;continue;}var b9=caml_make_vect(b4,b8),b_=1,ca=b$;for(;;){if(ca){var cb=ca[2];b9[b_+1]=ca[1];var cc=b_+1|0,b_=cc,ca=cb;continue;}var cd=b9;break;}break;}}else var cd=[0];return caml_js_from_array(cd);}function cx(ce){be[1]=new MlWrappedString(ce);cf(be[1],bf[1]);var cg=be[1].toString().concat(U.toString()),ch=cg.concat(bf[1].toString());bh.setPhirc(ci(bL(0)),ch);bi[1].setUserId(be[1].toString());return bs(0);}function cy(ck,cj){bf[1]=new MlWrappedString(cj);bo.send(V.toString().concat(bf[1].toString()));return bi[1].startNewuser(ck);}function cz(cl,cm){be[1]=new MlWrappedString(cl);bf[1]=new MlWrappedString(cm);cf(be[1],bf[1]);var cn=be[1].toString().concat(X.toString()),co=cn.concat(bf[1].toString());bh.setPhirc(ci(bL(0)),co);return bh.showClientMessage(W.toString());}function cA(cq){if(_!==be[1]){var cp=av(Z,bf[1]);return bh.showClientMessage(av(be[1],cp).toString());}return bh.showErrorMessage(Y.toString());}function cB(cr){bf[1]=new MlWrappedString(cr);cf(be[1],bf[1]);var cs=be[1].toString().concat($.toString()),ct=cs.concat(bf[1].toString());bh.setPhirc(ci(bL(0)),ct);return bs(0);}bh.setPhirc(ci(bL(0)),a6);bh.bind(p.toString(),cw);bh.bind(o.toString(),cu);bh.bind(n.toString(),cv);bh.bind(m.toString(),cy);bh.bind(l.toString(),cz);bh.bind(k.toString(),cA);bi[1].bind(j.toString(),cB);bi[1].bind(i.toString(),cx);var cC=[0,0];function cQ(cD){var cE=cD.keyCode,cF=cC[1]?t:u;if(9===cE)caml_js_eval_string(aa);else if(16===cE)cC[1]=1;else{var cG=cF;for(;;){if(cG){var cH=cG[2],cI=0===caml_compare(cG[1][1],cE)?1:0;if(!cI){var cG=cH;continue;}var cJ=cI;}else var cJ=0;if(cJ){var cK=cF;for(;;){if(!cK)throw [0,ak];var cL=cK[1],cN=cK[2],cM=cL[2];if(0!==caml_compare(cL[1],cE)){var cK=cN;continue;}aB(function(cO){return bo.send(cO.toString());},cM);break;}}break;}}return cD.preventDefault();}function cR(cP){return 16===cP.keyCode?(cC[1]=0,0):0;}bh.bind(h.toString(),cQ);bh.bind(g.toString(),cR);return a9;}bc.onload=bb(caml_js_wrap_callback(function(cU){if(cU){var cV=cT(cU);if(!(cV|0))cU.preventDefault();return cV;}var cW=event,cX=cT(cW);cW.returnValue=cX;return cX;}));aw(0);return;}());
